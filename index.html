@@ -63,6 +63,17 @@ button{font-family:inherit;cursor:pointer}input,select,textarea{font-family:inhe
 .sb-add{width:30px;height:30px;border-radius:50%;border:1px dashed var(--border);background:none;
   color:var(--text-light);font-size:14px;display:flex;align-items:center;justify-content:center;margin-top:4px}
 .sb-add:hover{border-color:var(--text-mid);color:var(--text-mid)}
+/* Member edit */
+.sb-btn{position:relative}
+.sb-edit-btn{position:absolute;top:1px;right:1px;width:14px;height:14px;border:none;background:rgba(255,255,255,0.92);
+  border-radius:3px;font-size:8px;cursor:pointer;display:none;padding:0;line-height:14px;text-align:center;
+  color:var(--text-mid);z-index:10}
+.sb-btn:hover .sb-edit-btn{display:block}
+.sb-edit-btn:hover{background:#fff;color:var(--text)}
+.sb-rename-wrap{width:52px;padding:3px 3px 2px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.sb-rename{width:100%;font-size:9px;border:1px solid var(--border-strong);border-radius:4px;padding:2px 4px;outline:none;text-align:center;background:#fff}
+.sb-rename:focus{border-color:var(--text-mid)}
+.sb-rename-hint{font-size:7px;color:var(--text-light)}
 
 /* Mandala — landscape fill */
 .stage{flex:1;display:flex;align-items:stretch;padding:10px 12px;min-width:0;min-height:0;overflow:hidden}
@@ -197,6 +208,7 @@ const S={
   editTaskId:null,
   editFeatId:null,
   renamingTab:null,renameVal:"",
+  editingMember:null,editMemberVal:"",
   gasUrl:localStorage.getItem("mandalaGasUrl")||"",
   saveStatus:localStorage.getItem("mandalaGasUrl")?"saving":"offline",
   lastSaved:null,lastError:"",
@@ -319,20 +331,57 @@ function renderTabBar(){
   return bar;
 }
 
+function renameMember(oldName,newName){
+  const p=ap();const idx=p.members.indexOf(oldName);if(idx<0)return;
+  if(!newName||newName===oldName){S.editingMember=null;S.editMemberVal="";render();return;}
+  if(p.members.includes(newName)){alert("その名前はすでに登録されています");return;}
+  p.members[idx]=newName;
+  p.features.forEach(f=>f.tasks.forEach(t=>{if(t.assignee===oldName)t.assignee=newName;}));
+  (p.roles||[]).forEach(r=>{if(r.name===oldName)r.name=newName;});
+  if(S.selectedHolder===oldName)S.selectedHolder=newName;
+  S.editingMember=null;S.editMemberVal="";
+  scheduleSave();render();
+}
+
 function renderSidebar(){
   const sb=h("div",{className:"sidebar"});
   const p=ap();
   if(!p.members)p.members=[];
   sb.appendChild(h("button",{className:"sb-btn"+(!S.selectedHolder?" active":""),onClick:()=>setState({selectedHolder:null})},h("div",{className:"sb-avatar"},"ALL")));
-  p.members.forEach(name=>{
+
+  p.members.forEach((name,idx)=>{
     const tasks=p.features.flatMap(f=>f.tasks).filter(t=>t.assignee===name);
     const done=tasks.filter(t=>t.done).length;
-    sb.appendChild(h("button",{className:"sb-btn"+(S.selectedHolder===name?" active":""),
-      onClick:()=>setState({selectedHolder:S.selectedHolder===name?null:name})},
-      h("div",{className:"sb-avatar"},name.slice(0,2)),
-      h("div",{className:"sb-name"},done+"/"+tasks.length)));
+
+    if(S.editingMember===name){
+      // 編集モード: インライン入力
+      const wrap=h("div",{className:"sb-rename-wrap"});
+      const inp=h("input",{className:"sb-rename",value:S.editMemberVal,maxlength:"8"});
+      inp.addEventListener("input",e=>{S.editMemberVal=e.target.value;});
+      inp.addEventListener("blur",()=>renameMember(name,(S.editMemberVal||"").trim()||name));
+      inp.addEventListener("keydown",e=>{
+        if(e.key==="Enter"){e.preventDefault();inp.blur();}
+        if(e.key==="Escape"){S.editingMember=null;S.editMemberVal="";render();}
+      });
+      wrap.appendChild(inp);
+      wrap.appendChild(h("div",{className:"sb-rename-hint"},"Enter で確定"));
+      sb.appendChild(wrap);
+      setTimeout(()=>{inp.focus();inp.select();},0);
+    }else{
+      const btn=h("button",{className:"sb-btn"+(S.selectedHolder===name?" active":""),
+        onClick:()=>setState({selectedHolder:S.selectedHolder===name?null:name})});
+      btn.appendChild(h("div",{className:"sb-avatar"},name.slice(0,2)));
+      btn.appendChild(h("div",{className:"sb-name"},done+"/"+tasks.length));
+      // ホバーで表示される編集ボタン
+      const editBtn=h("button",{className:"sb-edit-btn",title:"名前を変更",
+        onClick:e=>{e.stopPropagation();S.editingMember=name;S.editMemberVal=name;render();}
+      },"✎");
+      btn.appendChild(editBtn);
+      sb.appendChild(btn);
+    }
   });
-  // Add member button
+
+  // 担当者追加ボタン
   sb.appendChild(h("button",{className:"sb-add",title:"担当者を追加",onClick:()=>{
     const name=prompt("追加する担当者名を入力:");
     if(name&&name.trim()&&!p.members.includes(name.trim())){p.members.push(name.trim());scheduleSave();render();}
