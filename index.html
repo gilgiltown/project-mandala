@@ -207,6 +207,24 @@ button{font-family:inherit;cursor:pointer}input,select,textarea{font-family:inhe
 .dash-toggle{padding:4px 11px;border-radius:6px;border:1px solid var(--border);font-size:10px;font-weight:600;cursor:pointer;background:#fff;color:var(--text-mid)}
 .dash-toggle.active{background:var(--text);border-color:var(--text);color:#fff}
 
+/* 削除ボタン */
+.proj-delete-btn{flex-shrink:0;border:none;background:none;color:var(--text-light);font-size:9.5px;font-weight:600;padding:2px 6px;border-radius:10px;cursor:pointer;white-space:nowrap;margin-top:2px}
+.proj-delete-btn:hover{background:var(--red-bg);color:var(--red)}
+/* 非表示セクション */
+.hidden-section-toggle{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:600;color:var(--text-light);cursor:pointer;padding:6px 0;margin-top:4px;user-select:none}
+.hidden-section-toggle:hover{color:var(--text-mid)}
+/* 確認モーダル */
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:400}
+.modal-card{background:#fff;border-radius:12px;padding:26px 28px;max-width:360px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,0.2)}
+.modal-title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px}
+.modal-body{font-size:12px;color:var(--text-mid);line-height:1.7;margin-bottom:22px}
+.modal-body strong{color:var(--text);font-weight:700}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px}
+.modal-btn{padding:7px 18px;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:#fff;color:var(--text-mid)}
+.modal-btn:hover{background:var(--tag)}
+.modal-btn.danger{background:var(--red);border-color:var(--red);color:#fff}
+.modal-btn.danger:hover{opacity:0.88}
+
 /* Setup overlay */
 .setup-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;z-index:200}
 .setup-card{background:#fff;border-radius:12px;padding:28px;max-width:540px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,0.15);max-height:90vh;overflow-y:auto}
@@ -224,31 +242,10 @@ const NOW=new Date(),DAY=86400000;
 function mkFeat(n,t){return{id:"f_"+Math.random().toString(36).slice(2,7),name:n,tasks:t};}
 function mkTask(n,a,d,done){return{id:"t_"+Math.random().toString(36).slice(2,7),name:n,assignee:a,deadline:d,done:!!done};}
 
+// 初期テンプレート（サンプル氏名なし・空プロジェクト）
 const SAMPLE=[
-  {id:"p1",productName:"業務効率化プラットフォーム",
-   members:["田中","佐藤","鈴木","山田"],
-   roles:[{role:"リーダー",name:"田中"},{role:"エンジニア",name:"佐藤"},{role:"エンジニア",name:"鈴木"},{role:"デザイナー",name:"山田"}],
-   budget:"5,000,000",
-   features:[
-    mkFeat("ユーザー認証",[mkTask("ログイン画面UI","田中","04/01",true),mkTask("認証API連携","佐藤","04/03",true),mkTask("パスワードリセット","田中","04/05",true),mkTask("SSO対応","鈴木","04/10",false),mkTask("MFA実装","鈴木","04/15",false),mkTask("セッション管理","田中","04/18",false),mkTask("権限ロール設計","佐藤","04/20",false),mkTask("監査ログ","山田","04/25",false)]),
-    mkFeat("ダッシュボード",[mkTask("レイアウト設計","山田","04/01",true),mkTask("グラフ部品","佐藤","04/04",true),mkTask("リアルタイム更新","鈴木","04/05",false),mkTask("フィルター機能","山田","04/18",false),mkTask("KPIカード","田中","04/20",false),mkTask("期間選択UI","佐藤","04/22",false),mkTask("CSVエクスポート","山田","04/28",false),mkTask("ウィジェット保存","鈴木","05/02",false)]),
-    mkFeat("自動化エンジン",[mkTask("ワークフロー定義","鈴木","03/28",true),mkTask("トリガー設定","田中","04/03",false),mkTask("アクション実行","佐藤","04/12",false),mkTask("ログ監視","鈴木","04/30",false),mkTask("エラー再試行","田中","05/05",false),mkTask("スケジュール実行","山田","05/08",false),mkTask("条件分岐","佐藤","05/12",false),mkTask("テンプレ保存","鈴木","05/15",false)]),
-    mkFeat("設定・管理",[mkTask("ユーザー管理","山田","03/30",true),mkTask("権限設定","田中","04/02",false),mkTask("通知設定","佐藤","04/08",false),mkTask("統合テスト","山田","04/30",false),mkTask("API鍵管理","鈴木","05/01",false),mkTask("請求設定","田中","05/05",false),mkTask("ブランド設定","佐藤","05/10",false),mkTask("データ削除","山田","05/15",false)]),
-    mkFeat("レポート",[mkTask("レポート設計","佐藤","04/10",true),mkTask("PDF出力","山田","04/15",false),mkTask("定期配信","田中","04/22",false),mkTask("カスタム集計","鈴木","04/28",false),mkTask("比較分析","佐藤","05/02",false),mkTask("共有リンク","山田","05/08",false),mkTask("アノテーション","田中","05/12",false),mkTask("履歴閲覧","鈴木","05/15",false)]),
-    mkFeat("API連携",[mkTask("OAuth2対応","鈴木","04/05",true),mkTask("Webhook送信","田中","04/12",false),mkTask("レート制限","佐藤","04/18",false),mkTask("エラー処理","山田","04/22",false),mkTask("SDK Node版","鈴木","04/28",false),mkTask("SDK Python版","田中","05/05",false),mkTask("ドキュメント","佐藤","05/10",false),mkTask("サンプル集","山田","05/14",false)]),
-    mkFeat("通知機能",[mkTask("メール送信基盤","田中","04/08",true),mkTask("Slack連携","佐藤","04/15",false),mkTask("アプリ内通知","山田","04/20",false),mkTask("配信ルール","鈴木","04/25",false),mkTask("ダイジェスト","田中","05/01",false),mkTask("購読管理","佐藤","05/06",false),mkTask("テンプレート","山田","05/10",false),mkTask("多言語対応","鈴木","05/15",false)]),
-    mkFeat("モバイル対応",[mkTask("レスポンシブ","山田","04/10",false),mkTask("タッチ最適化","佐藤","04/18",false),mkTask("オフライン","鈴木","04/25",false),mkTask("PWA対応","田中","05/01",false),mkTask("プッシュ通知","山田","05/08",false),mkTask("カメラ入力","佐藤","05/14",false),mkTask("位置情報","鈴木","05/18",false),mkTask("生体認証","田中","05/22",false)]),
-  ]},
-  {id:"p2",productName:"モバイルアプリ v2",members:["田中","佐藤","鈴木","山田"],roles:[{role:"PM",name:"田中"}],budget:"",features:[
-    mkFeat("UIリニューアル",Array.from({length:8},(_,i)=>mkTask("UI改修"+(i+1),"田中","04/"+(10+i*2),i<2))),
-    mkFeat("通知機能",Array.from({length:8},(_,i)=>mkTask("通知"+(i+1),"佐藤","04/"+(12+i),i<1))),
-    mkFeat("決済統合",Array.from({length:8},(_,i)=>mkTask("決済"+(i+1),"鈴木","04/"+(14+i),false))),
-    mkFeat("パフォーマンス",Array.from({length:8},(_,i)=>mkTask("最適化"+(i+1),"山田","04/"+(16+i),false))),
-    mkFeat("国際化",Array.from({length:8},(_,i)=>mkTask("i18n"+(i+1),"田中","05/"+(1+i),false))),
-    mkFeat("アクセシビリティ",Array.from({length:8},(_,i)=>mkTask("a11y"+(i+1),"佐藤","05/"+(3+i),false))),
-    mkFeat("分析基盤",Array.from({length:8},(_,i)=>mkTask("計測"+(i+1),"鈴木","05/"+(5+i),false))),
-    mkFeat("セキュリティ",Array.from({length:8},(_,i)=>mkTask("SEC"+(i+1),"山田","05/"+(7+i),false))),
-  ]},
+  {id:"p1",productName:"新規プロジェクト",members:[],roles:[],budget:"",
+   features:Array.from({length:8},(_,i)=>mkFeat("機能"+(i+1),[]))},
 ];
 
 // ═══ State ═══
@@ -260,6 +257,8 @@ const S={
   editFeatId:null,
   view:"mandala",
   hiddenProjects:[],
+  confirmDelete:null,
+  showHiddenSection:false,
   renamingTab:null,renameVal:"",
   editingMember:null,editMemberVal:"",
   gasUrl:localStorage.getItem("mandalaGasUrl")||"",
@@ -409,7 +408,8 @@ function renderTabBar(){
     scheduleSave();render();
   }},"+プロジェクト"));
 
-  S.projects.forEach(p=>{
+  // 非表示プロジェクトはタブに表示しない
+  S.projects.filter(p=>!S.hiddenProjects.includes(p.id)).forEach(p=>{
     if(S.renamingTab===p.id){
       const inp=h("input",{className:"tab-rename",value:S.renameVal});
       inp.addEventListener("input",e=>{S.renameVal=e.target.value;});
@@ -525,8 +525,11 @@ function renderDashboard(){
   sec1.appendChild(h("div",{className:"dash-section-title"},"プロジェクト一覧"));
   const grid=h("div",{className:"proj-grid"});
 
-  S.projects.forEach(p=>{
-    const isHidden=S.hiddenProjects.includes(p.id);
+  // 表示中プロジェクトのカード
+  const visibleProjs=S.projects.filter(p=>!S.hiddenProjects.includes(p.id));
+  const hiddenProjs=S.projects.filter(p=>S.hiddenProjects.includes(p.id));
+
+  function buildCard(p){
     const pct=projectPct(p);
     let urgentCnt=0,soonCnt=0,doneCnt=0,totalCnt=0;
     p.features.forEach(f=>f.tasks.filter(t=>t.name&&t.name.trim()).forEach(t=>{
@@ -536,14 +539,24 @@ function renderDashboard(){
       if(c==="urgent")urgentCnt++;
       else if(c==="soon")soonCnt++;
     }));
-
-    const card=h("div",{className:"proj-card"+(isHidden?" proj-hidden":"")});
+    const card=h("div",{className:"proj-card"});
+    // ヘッダー：名前 ＋ [非表示] [削除]
+    const btnWrap=h("div",{style:{display:"flex",gap:"4px",flexShrink:"0",marginTop:"2px"}});
+    btnWrap.appendChild(h("button",{className:"proj-hide-btn",onClick:()=>{
+      S.hiddenProjects=[...S.hiddenProjects,p.id];
+      // 非表示にしたプロジェクトがアクティブなら別のに切り替え
+      if(S.activeProjectId===p.id){
+        const next=S.projects.find(x=>!S.hiddenProjects.includes(x.id));
+        if(next)S.activeProjectId=next.id;
+      }
+      render();
+    }},"非表示"));
+    btnWrap.appendChild(h("button",{className:"proj-delete-btn",onClick:()=>{
+      setState({confirmDelete:p.id});
+    }},"削除"));
     card.appendChild(h("div",{className:"proj-card-top"},
       h("div",{className:"proj-card-name",onClick:()=>setState({view:"mandala",activeProjectId:p.id})},p.productName),
-      h("button",{className:"proj-hide-btn",onClick:()=>{
-        S.hiddenProjects=isHidden?S.hiddenProjects.filter(id=>id!==p.id):[...S.hiddenProjects,p.id];
-        render();
-      }},isHidden?"表示する":"非表示")));
+      btnWrap));
     card.appendChild(h("div",{className:"proj-pct-row"},
       h("div",{className:"proj-pct-num"},pct+"%"),
       h("div",{className:"proj-pbar"},h("div",{className:"proj-pbar-fill",style:{width:pct+"%"}}))));
@@ -552,26 +565,57 @@ function renderDashboard(){
     if(urgentCnt>0)meta.appendChild(h("span",{className:"proj-badge badge-urgent"},"🔴 "+urgentCnt+" 件・1週間以内"));
     if(soonCnt>0)meta.appendChild(h("span",{className:"proj-badge badge-soon"},"🟡 "+soonCnt+" 件・2週間以内"));
     card.appendChild(meta);
-    grid.appendChild(card);
-  });
+    return card;
+  }
+
+  visibleProjs.forEach(p=>grid.appendChild(buildCard(p)));
   sec1.appendChild(grid);
+
+  // 非表示中プロジェクトのセクション
+  if(hiddenProjs.length>0){
+    const toggle=h("div",{className:"hidden-section-toggle",onClick:()=>{S.showHiddenSection=!S.showHiddenSection;render();}},
+      h("span",{},S.showHiddenSection?"▾":"▸"),
+      h("span",{},"非表示中のプロジェクト ("+hiddenProjs.length+"件)"));
+    sec1.appendChild(toggle);
+    if(S.showHiddenSection){
+      const hGrid=h("div",{className:"proj-grid",style:{opacity:"0.6"}});
+      hiddenProjs.forEach(p=>{
+        const pct=projectPct(p);
+        const card=h("div",{className:"proj-card"});
+        const btnWrap=h("div",{style:{display:"flex",gap:"4px",flexShrink:"0",marginTop:"2px"}});
+        btnWrap.appendChild(h("button",{className:"proj-hide-btn",style:{background:"#e8f5e9",color:"#388e3c"},onClick:()=>{
+          S.hiddenProjects=S.hiddenProjects.filter(id=>id!==p.id);
+          render();
+        }},"再表示"));
+        btnWrap.appendChild(h("button",{className:"proj-delete-btn",onClick:()=>setState({confirmDelete:p.id})},"削除"));
+        card.appendChild(h("div",{className:"proj-card-top"},
+          h("div",{className:"proj-card-name",style:{color:"var(--text-mid)"}},p.productName),btnWrap));
+        card.appendChild(h("div",{className:"proj-pct-row"},
+          h("div",{className:"proj-pct-num",style:{fontSize:"14px"}},pct+"%"),
+          h("div",{className:"proj-pbar"},h("div",{className:"proj-pbar-fill",style:{width:pct+"%"}}))));
+        hGrid.appendChild(card);
+      });
+      sec1.appendChild(hGrid);
+    }
+  }
   dash.appendChild(sec1);
 
   // ── Section 2: 担当者別タスク状況 & 忙殺率 ──
-  // 非表示プロジェクトは除外
+  // 非表示プロジェクトは除外、p.membersに登録された人のみ集計
   const visProjects=S.projects.filter(p=>!S.hiddenProjects.includes(p.id));
   const mMap={};
   visProjects.forEach(p=>{
-    (p.members||[]).forEach(m=>{if(!mMap[m])mMap[m]={done:0,normal:0,soon:0,urgent:0};});
-    p.features.forEach(f=>f.tasks.filter(t=>t.name&&t.name.trim()&&t.assignee).forEach(t=>{
-      const m=t.assignee;
+    (p.members||[]).forEach(m=>{
       if(!mMap[m])mMap[m]={done:0,normal:0,soon:0,urgent:0};
-      if(t.done){mMap[m].done++;return;}
-      const c=deadlineClass(t);
-      if(c==="urgent")mMap[m].urgent++;
-      else if(c==="soon")mMap[m].soon++;
-      else mMap[m].normal++;
-    }));
+      // そのメンバーに割り当てられたタスクのみカウント
+      p.features.forEach(f=>f.tasks.filter(t=>t.name&&t.name.trim()&&t.assignee===m).forEach(t=>{
+        if(t.done){mMap[m].done++;return;}
+        const c=deadlineClass(t);
+        if(c==="urgent")mMap[m].urgent++;
+        else if(c==="soon")mMap[m].soon++;
+        else mMap[m].normal++;
+      }));
+    });
   });
 
   const sec2=h("div",{className:"dash-section"});
@@ -776,6 +820,30 @@ function render(){
   }
   c.appendChild(body);app.appendChild(c);
   const so=renderSetupOverlay();if(so)app.appendChild(so);
+  const cm=renderConfirmModal();if(cm)app.appendChild(cm);
+}
+
+function renderConfirmModal(){
+  if(!S.confirmDelete)return null;
+  const p=S.projects.find(x=>x.id===S.confirmDelete);
+  if(!p){S.confirmDelete=null;return null;}
+  const card=h("div",{className:"modal-card"});
+  card.appendChild(h("div",{className:"modal-title"},"プロジェクトを削除"));
+  card.appendChild(h("div",{className:"modal-body"},
+    "「",h("strong",{},p.productName),"」を削除しますか？\nこの操作は取り消せません。スプレッドシートのデータも削除されます。"));
+  const actions=h("div",{className:"modal-actions"});
+  actions.appendChild(h("button",{className:"modal-btn",onClick:()=>setState({confirmDelete:null})},"キャンセル"));
+  actions.appendChild(h("button",{className:"modal-btn danger",onClick:()=>{
+    S.projects=S.projects.filter(x=>x.id!==S.confirmDelete);
+    S.hiddenProjects=S.hiddenProjects.filter(id=>id!==S.confirmDelete);
+    if(S.activeProjectId===S.confirmDelete){
+      S.activeProjectId=S.projects[0]?.id||"";
+    }
+    S.confirmDelete=null;
+    scheduleSave();render();
+  }},"削除する"));
+  card.appendChild(actions);
+  return h("div",{className:"modal-overlay",onClick:e=>{if(e.target===e.currentTarget)setState({confirmDelete:null});}},card);
 }
 
 function renderSetupOverlay(){
