@@ -14,8 +14,8 @@ button{font-family:inherit;cursor:pointer}input,select,textarea{font-family:inhe
   --bg:#f4f4f2;--surface:#fff;--border:#e2e0dc;--border-lt:#eceae6;--border-strong:#c8c5be;
   --text:#3a3a3a;--text-mid:#6b6b6b;--text-light:#9a9a9a;
   --done-bg:#e8e6e1;--done-tx:#a8a6a0;--bar:#e8e6e2;--bar-fill:#6b6b6b;
-  --tag:#eae8e4;--red:#d94040;--red-bg:#fdf2f2;--red-border:#f0c0c0;
-  --orange:#d48c1a;--orange-bg:#fdf8f0;--orange-border:#f0ddb0;
+  --tag:#eae8e4;--red:#d94040;--red-bg:#fff0f0;--red-border:#f5b8b8;
+  --yellow:#b08800;--yellow-bg:#fffbe6;--yellow-border:#f0dc80;
   --center-bg:#f7f6f3;--product-bg:#3a3a3a;--green:#5a8c5c;
 }
 .app{width:100vw;height:100vh;display:flex;flex-direction:column;overflow:hidden}
@@ -94,16 +94,16 @@ button{font-family:inherit;cursor:pointer}input,select,textarea{font-family:inhe
 .task:hover{border-color:var(--text-mid)}
 .task.done{background:var(--done-bg);opacity:0.5}
 .task.done .task-name{text-decoration:line-through;color:var(--done-tx)}
-.task.overdue{background:var(--red-bg);border-color:var(--red-border)}
-.task.soon{background:var(--orange-bg);border-color:var(--orange-border)}
+.task.urgent{background:var(--red-bg);border-color:var(--red-border)}
+.task.soon{background:var(--yellow-bg);border-color:var(--yellow-border)}
 .task.highlighted{border:1.5px solid var(--text)!important;background:#f7f7f5;box-shadow:0 0 0 2px rgba(58,58,58,0.08)}
 .task.dimmed{opacity:0.15}
 .task-name{font-size:11px;font-weight:600;color:var(--text);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.3}
 .task-meta{display:flex;justify-content:space-between;align-items:center;margin-top:auto;padding-top:2px;font-size:9px;color:var(--text-light);white-space:nowrap;overflow:hidden;gap:4px}
 .task-meta .assignee{font-weight:600;color:var(--text-mid);overflow:hidden;text-overflow:ellipsis;flex-shrink:1;min-width:0}
 .task-meta .deadline{flex-shrink:0;font-size:8.5px}
-.task.overdue .deadline{color:var(--red);font-weight:700}
-.task.soon .deadline{color:var(--orange);font-weight:700}
+.task.urgent .deadline{color:var(--red);font-weight:700}
+.task.soon .deadline{color:var(--yellow);font-weight:700}
 /* Checkbox */
 .task-check{position:absolute;top:4px;left:4px;width:14px;height:14px;border-radius:3px;
   border:1.5px solid var(--border-strong);background:#fff;display:flex;align-items:center;justify-content:center;
@@ -297,7 +297,7 @@ function fmtDl(dl){
   if(!isNaN(d.getTime()))return(d.getMonth()+1)+"/"+(d.getDate());
   return s.slice(0,5);
 }
-function deadlineClass(t){if(t.done)return"done";const dt=parseDeadline(t.deadline);if(!dt)return"";const d=dt-NOW;return d<0?"overdue":d<7*DAY?"soon":"";}
+function deadlineClass(t){if(t.done)return"done";const dt=parseDeadline(t.deadline);if(!dt)return"";const d=dt-NOW;if(d<7*DAY)return"urgent";if(d<14*DAY)return"soon";return"";}
 function featPct(f){const t=f.tasks.length,d=f.tasks.filter(x=>x.done).length;return{total:t,done:d,pct:t?Math.round(d/t*100):0};}
 function projectPct(p){let t=0,d=0;p.features.forEach(f=>{t+=f.tasks.length;d+=f.tasks.filter(x=>x.done).length;});return t?Math.round(d/t*100):0;}
 
@@ -535,8 +535,8 @@ function render(){
     ),
     h("div",{className:"header-right"},
       h("div",{className:"legend"},
-        h("div",{className:"legend-item"},h("span",{className:"legend-dot",style:{background:"var(--red)"}}),"期限超過"),
-        h("div",{className:"legend-item"},h("span",{className:"legend-dot",style:{background:"var(--orange)"}}),"1週間以内"),
+        h("div",{className:"legend-item"},h("span",{className:"legend-dot",style:{background:"var(--red-bg)",border:"1px solid var(--red-border)"}}),"1週間以内"),
+        h("div",{className:"legend-item"},h("span",{className:"legend-dot",style:{background:"var(--yellow-bg)",border:"1px solid var(--yellow-border)"}}),"2週間以内"),
         h("div",{className:"legend-item"},h("span",{className:"legend-dot",style:{background:"var(--done-bg)",border:"1px solid var(--border)"}}),"完了")),
       S.selectedHolder?h("span",{style:{padding:"2px 8px",background:"var(--tag)",borderRadius:"10px",fontSize:"9.5px",fontWeight:"600"}},S.selectedHolder+" のタスク"):null,
       h("button",{className:"btn",onClick:()=>setState({showSetup:true})},"⚙ 設定"))
