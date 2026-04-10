@@ -165,6 +165,48 @@ button{font-family:inherit;cursor:pointer}input,select,textarea{font-family:inhe
 .save-indicator.offline .save-dot{background:var(--text-light)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
 
+/* ── Dashboard ── */
+.dash{flex:1;overflow-y:auto;padding:20px 28px;background:var(--bg);display:flex;flex-direction:column;gap:28px}
+.dash-section{}
+.dash-section-title{font-size:11px;font-weight:700;color:var(--text);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.proj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.proj-card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px 16px;transition:opacity 0.2s}
+.proj-card.proj-hidden{opacity:0.35}
+.proj-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:10px}
+.proj-card-name{font-size:13px;font-weight:700;color:var(--text);line-height:1.3;cursor:pointer}
+.proj-card-name:hover{color:var(--text-mid)}
+.proj-hide-btn{flex-shrink:0;border:none;background:var(--tag);color:var(--text-light);font-size:9.5px;font-weight:600;padding:2px 8px;border-radius:10px;cursor:pointer;white-space:nowrap;margin-top:2px}
+.proj-hide-btn:hover{background:var(--border);color:var(--text-mid)}
+.proj-pct-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.proj-pct-num{font-size:18px;font-weight:800;color:var(--text);min-width:44px}
+.proj-pbar{flex:1;height:7px;background:var(--bar);border-radius:4px;overflow:hidden}
+.proj-pbar-fill{height:100%;border-radius:4px;background:var(--bar-fill)}
+.proj-meta{display:flex;gap:10px;font-size:9.5px;color:var(--text-mid);flex-wrap:wrap}
+.proj-badge{padding:2px 7px;border-radius:8px;font-weight:600;font-size:9px}
+.badge-urgent{background:var(--red-bg);color:var(--red);border:1px solid var(--red-border)}
+.badge-soon{background:var(--yellow-bg);color:var(--yellow);border:1px solid var(--yellow-border)}
+.badge-done{background:#f0f8f0;color:var(--green)}
+
+/* Member bars */
+.member-table{display:flex;flex-direction:column;gap:8px}
+.member-row{display:flex;align-items:center;gap:10px}
+.member-label{width:52px;font-size:10.5px;font-weight:600;color:var(--text);text-align:right;flex-shrink:0}
+.member-bar-wrap{flex:1;height:16px;background:var(--bar);border-radius:5px;overflow:hidden;display:flex}
+.mbar-done{background:#b8b5af;height:100%}
+.mbar-normal{background:#dbd9d4;height:100%}
+.mbar-soon{background:#f0dc80;height:100%}
+.mbar-urgent{background:#f5b8b8;height:100%}
+.member-detail{display:flex;align-items:center;gap:8px;font-size:9.5px;color:var(--text-light);flex-shrink:0;width:220px}
+.busy-badge{font-size:9px;font-weight:700;padding:2px 7px;border-radius:8px;white-space:nowrap}
+.busy-high{background:var(--red-bg);color:var(--red)}
+.busy-mid{background:var(--yellow-bg);color:var(--yellow)}
+.busy-low{background:#f0f8f0;color:var(--green)}
+.busy-none{background:var(--tag);color:var(--text-light)}
+
+/* Dashboard toggle button in header */
+.dash-toggle{padding:4px 11px;border-radius:6px;border:1px solid var(--border);font-size:10px;font-weight:600;cursor:pointer;background:#fff;color:var(--text-mid)}
+.dash-toggle.active{background:var(--text);border-color:var(--text);color:#fff}
+
 /* Setup overlay */
 .setup-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;z-index:200}
 .setup-card{background:#fff;border-radius:12px;padding:28px;max-width:540px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,0.15);max-height:90vh;overflow-y:auto}
@@ -216,6 +258,8 @@ const S={
   selectedHolder:null,
   editTaskId:null,
   editFeatId:null,
+  view:"mandala",
+  hiddenProjects:[],
   renamingTab:null,renameVal:"",
   editingMember:null,editMemberVal:"",
   gasUrl:localStorage.getItem("mandalaGasUrl")||"",
@@ -472,6 +516,109 @@ function renderProjectInfo(){
   return bar;
 }
 
+// ═══ Dashboard ═══
+function renderDashboard(){
+  const dash=h("div",{className:"dash"});
+
+  // ── Section 1: プロジェクト一覧 ──
+  const sec1=h("div",{className:"dash-section"});
+  sec1.appendChild(h("div",{className:"dash-section-title"},"プロジェクト一覧"));
+  const grid=h("div",{className:"proj-grid"});
+
+  S.projects.forEach(p=>{
+    const isHidden=S.hiddenProjects.includes(p.id);
+    const pct=projectPct(p);
+    let urgentCnt=0,soonCnt=0,doneCnt=0,totalCnt=0;
+    p.features.forEach(f=>f.tasks.filter(t=>t.name&&t.name.trim()).forEach(t=>{
+      totalCnt++;
+      if(t.done){doneCnt++;return;}
+      const c=deadlineClass(t);
+      if(c==="urgent")urgentCnt++;
+      else if(c==="soon")soonCnt++;
+    }));
+
+    const card=h("div",{className:"proj-card"+(isHidden?" proj-hidden":"")});
+    card.appendChild(h("div",{className:"proj-card-top"},
+      h("div",{className:"proj-card-name",onClick:()=>setState({view:"mandala",activeProjectId:p.id})},p.productName),
+      h("button",{className:"proj-hide-btn",onClick:()=>{
+        S.hiddenProjects=isHidden?S.hiddenProjects.filter(id=>id!==p.id):[...S.hiddenProjects,p.id];
+        render();
+      }},isHidden?"表示する":"非表示")));
+    card.appendChild(h("div",{className:"proj-pct-row"},
+      h("div",{className:"proj-pct-num"},pct+"%"),
+      h("div",{className:"proj-pbar"},h("div",{className:"proj-pbar-fill",style:{width:pct+"%"}}))));
+    const meta=h("div",{className:"proj-meta"});
+    meta.appendChild(h("span",{},doneCnt+"/"+totalCnt+" タスク完了"));
+    if(urgentCnt>0)meta.appendChild(h("span",{className:"proj-badge badge-urgent"},"🔴 "+urgentCnt+" 件・1週間以内"));
+    if(soonCnt>0)meta.appendChild(h("span",{className:"proj-badge badge-soon"},"🟡 "+soonCnt+" 件・2週間以内"));
+    card.appendChild(meta);
+    grid.appendChild(card);
+  });
+  sec1.appendChild(grid);
+  dash.appendChild(sec1);
+
+  // ── Section 2: 担当者別タスク状況 & 忙殺率 ──
+  // 非表示プロジェクトは除外
+  const visProjects=S.projects.filter(p=>!S.hiddenProjects.includes(p.id));
+  const mMap={};
+  visProjects.forEach(p=>{
+    (p.members||[]).forEach(m=>{if(!mMap[m])mMap[m]={done:0,normal:0,soon:0,urgent:0};});
+    p.features.forEach(f=>f.tasks.filter(t=>t.name&&t.name.trim()&&t.assignee).forEach(t=>{
+      const m=t.assignee;
+      if(!mMap[m])mMap[m]={done:0,normal:0,soon:0,urgent:0};
+      if(t.done){mMap[m].done++;return;}
+      const c=deadlineClass(t);
+      if(c==="urgent")mMap[m].urgent++;
+      else if(c==="soon")mMap[m].soon++;
+      else mMap[m].normal++;
+    }));
+  });
+
+  const sec2=h("div",{className:"dash-section"});
+  sec2.appendChild(h("div",{className:"dash-section-title"},"担当者別タスク状況 / 忙殺率"));
+  const table=h("div",{className:"member-table"});
+
+  // 凡例
+  const legend=h("div",{style:{display:"flex",gap:"12px",fontSize:"9px",color:"var(--text-light)",marginBottom:"8px",alignItems:"center"}});
+  [["#b8b5af","完了"],["#dbd9d4","通常"],["#f0dc80","2週間以内"],["#f5b8b8","1週間以内"]].forEach(([c,l])=>{
+    legend.appendChild(h("div",{style:{display:"flex",alignItems:"center",gap:"3px"}},
+      h("div",{style:{width:"10px",height:"10px",borderRadius:"2px",background:c,flexShrink:"0"}}),l));
+  });
+  table.appendChild(legend);
+
+  Object.entries(mMap).sort(([,a],[,b])=>{
+    const ta=a.done+a.normal+a.soon+a.urgent, tb=b.done+b.normal+b.soon+b.urgent;
+    return tb-ta;
+  }).forEach(([name,s])=>{
+    const total=s.done+s.normal+s.soon+s.urgent;
+    if(total===0)return;
+    const remaining=total-s.done;
+    // 忙殺率: 残タスク中、締切が迫っているものの比率（urgent=重み2, soon=重み1）
+    const busyScore=remaining>0?Math.min(100,Math.round((s.urgent*2+s.soon)/(remaining*2)*100)):0;
+    const busyCls=busyScore>=60?"busy-high":busyScore>=30?"busy-mid":busyScore>0?"busy-low":"busy-none";
+    const busyLabel=busyScore>=60?"高":busyScore>=30?"中":busyScore>0?"低":"−";
+
+    const row=h("div",{className:"member-row"});
+    row.appendChild(h("div",{className:"member-label"},name));
+    const bw=h("div",{className:"member-bar-wrap"});
+    if(s.done>0)bw.appendChild(h("div",{className:"mbar-done",style:{width:(s.done/total*100)+"%"},title:"完了 "+s.done+"件"}));
+    if(s.normal>0)bw.appendChild(h("div",{className:"mbar-normal",style:{width:(s.normal/total*100)+"%"},title:"通常 "+s.normal+"件"}));
+    if(s.soon>0)bw.appendChild(h("div",{className:"mbar-soon",style:{width:(s.soon/total*100)+"%"},title:"2週間以内 "+s.soon+"件"}));
+    if(s.urgent>0)bw.appendChild(h("div",{className:"mbar-urgent",style:{width:(s.urgent/total*100)+"%"},title:"1週間以内 "+s.urgent+"件"}));
+    row.appendChild(bw);
+    const detail=h("div",{className:"member-detail"});
+    detail.appendChild(h("span",{},s.done+"/"+total+" タスク"));
+    if(s.urgent>0)detail.appendChild(h("span",{style:{color:"var(--red)",fontWeight:"600"}},"🔴"+s.urgent));
+    if(s.soon>0)detail.appendChild(h("span",{style:{color:"var(--yellow)",fontWeight:"600"}},"🟡"+s.soon));
+    detail.appendChild(h("span",{className:"busy-badge "+busyCls},"忙殺率 "+busyLabel+" "+busyScore+"%"));
+    row.appendChild(detail);
+    table.appendChild(row);
+  });
+  sec2.appendChild(table);
+  dash.appendChild(sec2);
+  return dash;
+}
+
 function renderCenterBlock(){
   const p=ap();const blk=h("div",{className:"block center"});
   const pos=[0,1,2,3,null,4,5,6,7];
@@ -614,14 +761,19 @@ function render(){
         h("div",{className:"legend-item"},h("span",{className:"legend-dot",style:{background:"var(--yellow-bg)",border:"1px solid var(--yellow-border)"}}),"2週間以内"),
         h("div",{className:"legend-item"},h("span",{className:"legend-dot",style:{background:"var(--done-bg)",border:"1px solid var(--border)"}}),"完了")),
       S.selectedHolder?h("span",{style:{padding:"2px 8px",background:"var(--tag)",borderRadius:"10px",fontSize:"9.5px",fontWeight:"600"}},S.selectedHolder+" のタスク"):null,
+      h("button",{className:"dash-toggle"+(S.view==="dashboard"?" active":""),onClick:()=>setState({view:S.view==="dashboard"?"mandala":"dashboard"}),title:"ダッシュボード/マンダラ切替"},"📊 ダッシュボード"),
       h("button",{className:"btn",onClick:()=>setState({showSetup:true})},"⚙ 設定"))
   ));
-  c.appendChild(renderProjectInfo());
   const body=h("div",{className:"body-row"});
-  body.appendChild(renderSidebar());
-  const stage=h("div",{className:"stage"});const wrap=h("div",{className:"mandala-wrap"});
-  wrap.appendChild(renderMandala());stage.appendChild(wrap);body.appendChild(stage);
-  body.appendChild(renderEditPanel());
+  if(S.view==="dashboard"){
+    body.appendChild(renderDashboard());
+  }else{
+    c.appendChild(renderProjectInfo());
+    body.appendChild(renderSidebar());
+    const stage=h("div",{className:"stage"});const wrap=h("div",{className:"mandala-wrap"});
+    wrap.appendChild(renderMandala());stage.appendChild(wrap);body.appendChild(stage);
+    body.appendChild(renderEditPanel());
+  }
   c.appendChild(body);app.appendChild(c);
   const so=renderSetupOverlay();if(so)app.appendChild(so);
 }
