@@ -436,7 +436,7 @@ function renderOuterBlock(feat){
       blk.appendChild(h("div",{className:"cell feat-label"},h("div",{className:"feat-name"},feat.name),h("div",{className:"feat-pct"},done+"/"+total)));
     }else{
       const t=feat.tasks[pos[i]];
-      if(!t){blk.appendChild(h("div",{className:"cell"}));continue;}
+      if(!t||!t.name||!t.name.trim()){blk.appendChild(h("div",{className:"cell"}));continue;}
       const cls=deadlineClass(t);
       const hl=S.selectedHolder&&t.assignee===S.selectedHolder;
       const dm=S.selectedHolder&&t.assignee!==S.selectedHolder;
