@@ -29,6 +29,8 @@ button{font-family:inherit;cursor:pointer}input,select,textarea{font-family:inhe
 .tab-pct{font-size:9px;font-weight:600;padding:1px 5px;border-radius:8px}
 .tab-item.active .tab-pct{background:var(--tag);color:var(--text-mid)}
 .tab-rename{font-size:11px;font-weight:600;border:1px solid var(--border);border-radius:4px;padding:2px 6px;outline:none;width:160px;background:#fff}
+.tab-add{padding:0 12px;height:34px;background:none;border:none;color:var(--text-light);font-size:15px;cursor:pointer;font-weight:400;letter-spacing:-0.5px;white-space:nowrap}
+.tab-add:hover{color:var(--text-mid)}
 
 /* Header + project info bar */
 .header{padding:8px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);background:#fff;flex-shrink:0;gap:12px;flex-wrap:wrap}
@@ -63,6 +65,13 @@ button{font-family:inherit;cursor:pointer}input,select,textarea{font-family:inhe
 .sb-add{width:30px;height:30px;border-radius:50%;border:1px dashed var(--border);background:none;
   color:var(--text-light);font-size:14px;display:flex;align-items:center;justify-content:center;margin-top:4px}
 .sb-add:hover{border-color:var(--text-mid);color:var(--text-mid)}
+/* Empty cell — clickable to add task */
+.cell-empty{cursor:pointer;background:#fafaf8}
+.cell-empty:hover{background:#f0efe9;border-color:var(--border-strong)}
+.cell-empty::after{content:"+";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  font-size:18px;font-weight:300;color:var(--border-strong);pointer-events:none;transition:color 0.15s}
+.cell-empty:hover::after{color:var(--text-mid)}
+
 /* Member edit */
 .sb-btn{position:relative}
 .sb-edit-btn{position:absolute;top:1px;right:1px;width:14px;height:14px;border:none;background:rgba(255,255,255,0.92);
@@ -269,12 +278,44 @@ async function loadFromSheet(silent){
     setState({saveStatus:"saved",lastSaved:new Date(),lastError:""});
   }catch(e){console.error("Load:",e);if(silent)setState({saveStatus:"offline",lastError:""});else setState({saveStatus:"error",lastError:"読込失敗: "+e.message});}
 }
-async function saveToSheet(){
-  if(!S.gasUrl){S.saveStatus="offline";return;}
-  try{S.saveStatus="saving";S.lastError="";await gasFetchPost(S.gasUrl,{rows:projectsToRows(S.projects)});_gasConnected=true;setState({saveStatus:"saved",lastSaved:new Date(),lastError:""});}
-  catch(e){console.error("Save:",e);setState({saveStatus:"error",lastError:"保存失敗: "+e.message});}
+// 保存インジケータだけをDOM直接更新（フル再レンダリング不要）
+function patchSaveIndicator(){
+  const el=document.querySelector('.save-indicator');if(!el)return;
+  const saveLabel={saved:"保存済み",saving:"同期中...",error:"エラー",offline:"ローカル"};
+  el.className='save-indicator '+S.saveStatus;
+  el.title=S.lastError||"";
+  el.onclick=S.saveStatus==="error"?()=>setState({showSetup:true}):null;
+  el.innerHTML='';
+  const dot=document.createElement('span');dot.className='save-dot';el.appendChild(dot);
+  el.appendChild(document.createTextNode(
+    S.saveStatus==="error"&&S.lastError?S.lastError:
+    S.saveStatus==="saved"&&S.lastSaved?(saveLabel.saved+" "+S.lastSaved.toLocaleTimeString("ja-JP")):
+    (saveLabel[S.saveStatus]||"")));
 }
-function scheduleSave(){if(saveTimer)clearTimeout(saveTimer);if(!S.gasUrl)return;S.saveStatus="saving";saveTimer=setTimeout(()=>saveToSheet(),2000);}
+async function saveToSheet(){
+  if(!S.gasUrl){S.saveStatus="offline";patchSaveIndicator();return;}
+  try{
+    S.saveStatus="saving";S.lastError="";
+    patchSaveIndicator();
+    await gasFetchPost(S.gasUrl,{rows:projectsToRows(S.projects)});
+    _gasConnected=true;
+    S.saveStatus="saved";S.lastSaved=new Date();S.lastError="";
+    patchSaveIndicator();
+    // 入力中でなければフル再レンダリング（プログレスバー等の更新）
+    if(!document.activeElement||!document.activeElement.closest('.edit-panel')){render();}
+  }catch(e){
+    console.error("Save:",e);
+    S.saveStatus="error";S.lastError="保存失敗: "+e.message;
+    patchSaveIndicator();
+  }
+}
+function scheduleSave(){
+  if(saveTimer)clearTimeout(saveTimer);
+  if(!S.gasUrl)return;
+  S.saveStatus="saving";
+  patchSaveIndicator();
+  saveTimer=setTimeout(()=>saveToSheet(),2000);
+}
 
 // ── Helpers ──
 function parseDeadline(dl){
@@ -313,6 +354,17 @@ function findTask(id){for(const f of ap().features)for(const t of f.tasks)if(t.i
 // ═══ Render ═══
 function renderTabBar(){
   const bar=h("div",{className:"tab-bar"});
+  // ＋プロジェクト追加ボタン（左端）
+  bar.appendChild(h("button",{className:"tab-add",title:"新しいプロジェクトを追加",onClick:()=>{
+    const newP={id:"p_"+Math.random().toString(36).slice(2,7),productName:"新規プロジェクト",
+      members:[],roles:[],budget:"",
+      features:Array.from({length:8},(_,i)=>mkFeat("機能"+(i+1),[]))};
+    S.projects.push(newP);
+    S.activeProjectId=newP.id;
+    S.renamingTab=newP.id;S.renameVal=newP.productName;
+    scheduleSave();render();
+  }},"+プロジェクト"));
+
   S.projects.forEach(p=>{
     if(S.renamingTab===p.id){
       const inp=h("input",{className:"tab-rename",value:S.renameVal});
@@ -403,10 +455,19 @@ function renderProjectInfo(){
     bar.appendChild(h("div",{className:"pi-item"},roleInp,h("span",{},":"),nameSelect,rm));
   });
   bar.appendChild(h("button",{className:"pi-add",onClick:()=>{p.roles.push({role:"役割",name:p.members[0]||""});scheduleSave();render();}},"+役割"));
-  // Budget
-  bar.appendChild(h("div",{className:"pi-item",style:{marginLeft:"auto"}},h("span",{className:"pi-label"},"予算 ¥")));
-  const budInp=h("input",{className:"pi-edit",value:p.budget,placeholder:"0",style:{width:"100px",textAlign:"right"}});
-  budInp.addEventListener("change",e=>{p.budget=e.target.value;scheduleSave();});
+  // Budget（税込・カンマ自動整形）
+  function fmtBudget(v){const n=parseInt((v||"").replace(/[^0-9]/g,""),10);return isNaN(n)||n===0?"":n.toLocaleString("ja-JP");}
+  bar.appendChild(h("div",{className:"pi-item",style:{marginLeft:"auto"}},h("span",{className:"pi-label"},"予算（税込）¥")));
+  const budInp=h("input",{className:"pi-edit",value:fmtBudget(p.budget),placeholder:"0",style:{width:"120px",textAlign:"right"}});
+  // フォーカス時：カンマなしの数字のみで編集しやすく
+  budInp.addEventListener("focus",e=>{e.target.value=(p.budget||"").replace(/[^0-9]/g,"");e.target.select();});
+  // フォーカスを外したとき：カンマ整形して保存
+  budInp.addEventListener("blur",e=>{
+    const raw=(e.target.value||"").replace(/[^0-9]/g,"");
+    p.budget=raw?parseInt(raw,10).toLocaleString("ja-JP"):"";
+    e.target.value=fmtBudget(p.budget);
+    scheduleSave();
+  });
   bar.appendChild(budInp);
   return bar;
 }
@@ -436,7 +497,21 @@ function renderOuterBlock(feat){
       blk.appendChild(h("div",{className:"cell feat-label"},h("div",{className:"feat-name"},feat.name),h("div",{className:"feat-pct"},done+"/"+total)));
     }else{
       const t=feat.tasks[pos[i]];
-      if(!t||!t.name||!t.name.trim()){blk.appendChild(h("div",{className:"cell"}));continue;}
+      if(!t||!t.name||!t.name.trim()){
+        // 空白セル：クリックで新規タスク追加 or 既存の空タスクを編集
+        const emptyCell=h("div",{className:"cell cell-empty",onClick:()=>{
+          if(!t){
+            const nt=mkTask("","","",false);
+            feat.tasks.push(nt);
+            scheduleSave();
+            setState({editTaskId:nt.id,editFeatId:null});
+          }else{
+            setState({editTaskId:t.id,editFeatId:null});
+          }
+        }});
+        blk.appendChild(emptyCell);
+        continue;
+      }
       const cls=deadlineClass(t);
       const hl=S.selectedHolder&&t.assignee===S.selectedHolder;
       const dm=S.selectedHolder&&t.assignee!==S.selectedHolder;
