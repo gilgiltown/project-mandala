@@ -235,7 +235,13 @@ button{font-family:inherit;cursor:pointer}input,select,textarea{font-family:inhe
 
 /* チェックリスト */
 .checklist-section{display:flex;flex-direction:column;gap:4px}
-.check-row{display:flex;align-items:center;gap:7px;padding:2px 0}
+.check-row{display:flex;align-items:center;gap:6px;padding:2px 0;border-top:2px solid transparent;transition:border-color 0.1s}
+.check-row.drag-over-top{border-top-color:var(--text-mid)}
+.check-row.dragging{opacity:0.35}
+.check-handle{cursor:grab;color:var(--border-strong);font-size:13px;line-height:1;padding:0 2px;
+  flex-shrink:0;user-select:none;transition:color 0.1s}
+.check-handle:hover{color:var(--text-mid)}
+.check-handle:active{cursor:grabbing}
 .check-cb{width:15px;height:15px;border-radius:3px;border:1.5px solid var(--border-strong);background:#fff;
   display:flex;align-items:center;justify-content:center;font-size:10px;color:transparent;
   cursor:pointer;flex-shrink:0;transition:all 0.12s}
@@ -286,7 +292,7 @@ const S={
   lastSaved:null,lastError:"",
   showSetup:!localStorage.getItem("mandalaGasUrl"),
 };
-let _gasConnected=false,saveTimer=null;
+let _gasConnected=false,saveTimer=null,_dragCheckIdx=null;
 
 // ── Minimal render: skip full re-render while typing in edit panel ──
 let _editPanelEl=null,_skipRender=false;
@@ -816,25 +822,63 @@ function renderEditPanel(){
     aRow.appendChild(sel);panel.appendChild(aRow);
     panel.appendChild(mkInp("締切 (MM/DD)","deadline"));
 
-    // ── チェックリスト（5項目）──
+    // ── チェックリスト（12項目・ドラッグ&ドロップ並び替え対応）──
     const clSection=h("div",{className:"edit-row"});
-    clSection.appendChild(h("label",{},"チェックリスト"));
+    clSection.appendChild(h("label",{},"チェックリスト　⠿ドラッグで並び替え"));
     const clWrap=h("div",{className:"checklist-section"});
     if(!t.checks)t.checks=Array.from({length:12},()=>({text:"",done:false}));
     while(t.checks.length<12)t.checks.push({text:"",done:false});
+
     t.checks.forEach((c,idx)=>{
       const row=h("div",{className:"check-row"});
-      // チェックボックス
+      row.setAttribute("draggable","true");
+
+      // ─ ドラッグハンドル ─
+      const handle=h("div",{className:"check-handle"},"⠿");
+      row.appendChild(handle);
+
+      // ─ ドラッグイベント ─
+      row.addEventListener("dragstart",e=>{
+        _dragCheckIdx=idx;
+        row.classList.add("dragging");
+        e.dataTransfer.effectAllowed="move";
+      });
+      row.addEventListener("dragend",()=>{
+        _dragCheckIdx=null;
+        row.classList.remove("dragging");
+        clWrap.querySelectorAll(".drag-over-top").forEach(el=>el.classList.remove("drag-over-top"));
+      });
+      row.addEventListener("dragover",e=>{
+        e.preventDefault();
+        e.dataTransfer.dropEffect="move";
+        clWrap.querySelectorAll(".drag-over-top").forEach(el=>el.classList.remove("drag-over-top"));
+        row.classList.add("drag-over-top");
+      });
+      row.addEventListener("dragleave",()=>row.classList.remove("drag-over-top"));
+      row.addEventListener("drop",e=>{
+        e.preventDefault();
+        row.classList.remove("drag-over-top");
+        if(_dragCheckIdx!==null&&_dragCheckIdx!==idx){
+          const [moved]=t.checks.splice(_dragCheckIdx,1);
+          t.checks.splice(idx,0,moved);
+          scheduleSave();render();
+        }
+      });
+
+      // ─ チェックボックス ─
       const cb=h("div",{className:"check-cb"+(c.done?" done":""),onClick:()=>{
-        updateCheck(t.id,idx,"done",!c.done);
-        scheduleSave();render();
+        updateCheck(t.id,idx,"done",!c.done);scheduleSave();render();
       }},c.done?"✓":"");
       row.appendChild(cb);
-      // テキスト入力（タイピングラグ防止：inputで更新、changeで保存）
+
+      // ─ テキスト入力（inputで更新、changeで保存） ─
       const inp=h("input",{className:"check-inp"+(c.done?" done-txt":""),value:c.text,placeholder:"項目 "+(idx+1)});
       inp.addEventListener("input",e=>updateCheck(t.id,idx,"text",e.target.value));
       inp.addEventListener("change",()=>scheduleSave());
+      // ドラッグとの競合を防ぐ（入力中はドラッグ禁止）
+      inp.addEventListener("mousedown",e=>e.stopPropagation());
       row.appendChild(inp);
+
       clWrap.appendChild(row);
     });
     clSection.appendChild(clWrap);
