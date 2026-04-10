@@ -225,6 +225,14 @@ button{font-family:inherit;cursor:pointer}input,select,textarea{font-family:inhe
 .modal-btn.danger{background:var(--red);border-color:var(--red);color:#fff}
 .modal-btn.danger:hover{opacity:0.88}
 
+/* セル内チェックリスト進捗 */
+.task-cl{display:flex;align-items:center;gap:4px;margin-top:3px}
+.task-cl-txt{font-size:8.5px;font-weight:700;color:var(--text-mid);flex-shrink:0;min-width:24px}
+.task-cl-track{flex:1;height:3px;background:var(--bar);border-radius:2px;overflow:hidden}
+.task-cl-fill{height:100%;border-radius:2px;background:var(--bar-fill);transition:width 0.3s}
+.task.done .task-cl-txt{color:var(--done-tx)}
+.task.done .task-cl-fill{background:var(--done-tx)}
+
 /* チェックリスト */
 .checklist-section{display:flex;flex-direction:column;gap:4px}
 .check-row{display:flex;align-items:center;gap:7px;padding:2px 0}
@@ -314,7 +322,7 @@ function rowsToProjects(rows){
     if(!p._fMap[fName]){const f={id:"f_"+Math.random().toString(36).slice(2,7),name:fName,tasks:[]};p._fMap[fName]=f;p.features.push(f);}
     let taskChecks=[];
     try{const raw=row["チェック"]||"";if(raw)taskChecks=JSON.parse(raw);}catch{}
-    while(taskChecks.length<5)taskChecks.push({text:"",done:false});
+    while(taskChecks.length<12)taskChecks.push({text:"",done:false});
     p._fMap[fName].tasks.push({id:(row["タスクID"]||"").trim()||"t_"+Math.random().toString(36).slice(2,7),name:(row["タスク名"]||"").trim(),assignee:(row["担当者"]||"").trim(),deadline:(row["締切"]||"").trim(),done:(row["完了"]||"").trim().toUpperCase()==="TRUE",checks:taskChecks});
   }
   return pOrder.map(n=>{const p=pMap[n];delete p._fMap;return p;}).filter(p=>p.features.length>0)||null;
@@ -411,8 +419,8 @@ function updateFeatField(featId,key,val){ap().features.forEach(f=>{if(f.id===fea
 function updateCheck(taskId,idx,key,val){
   ap().features.forEach(f=>f.tasks.forEach(t=>{
     if(t.id===taskId){
-      if(!t.checks)t.checks=Array.from({length:5},()=>({text:"",done:false}));
-      while(t.checks.length<5)t.checks.push({text:"",done:false});
+      if(!t.checks)t.checks=Array.from({length:12},()=>({text:"",done:false}));
+      while(t.checks.length<12)t.checks.push({text:"",done:false});
       t.checks[idx][key]=val;
     }
   }));
@@ -747,6 +755,17 @@ function renderOuterBlock(feat){
       const chk=h("div",{className:"task-check",onClick:e=>{e.stopPropagation();toggleTask(t.id);}},t.done?"✓":"");
       cell.appendChild(chk);
       cell.appendChild(h("div",{className:"task-name",style:{paddingLeft:"18px"}},t.name));
+      // チェックリスト進捗（記載があるときのみ表示）
+      if(t.checks){
+        const withTxt=t.checks.filter(c=>c.text&&c.text.trim());
+        if(withTxt.length>0){
+          const checked=withTxt.filter(c=>c.done).length;
+          const pct=Math.round(checked/withTxt.length*100);
+          cell.appendChild(h("div",{className:"task-cl"},
+            h("span",{className:"task-cl-txt"},checked+"/"+withTxt.length),
+            h("div",{className:"task-cl-track"},h("div",{className:"task-cl-fill",style:{width:pct+"%"}}))));
+        }
+      }
       cell.appendChild(h("div",{className:"task-meta"},h("span",{className:"assignee"},t.assignee||""),h("span",{className:"deadline"},fmtDl(t.deadline))));
       blk.appendChild(cell);
     }
@@ -801,8 +820,8 @@ function renderEditPanel(){
     const clSection=h("div",{className:"edit-row"});
     clSection.appendChild(h("label",{},"チェックリスト"));
     const clWrap=h("div",{className:"checklist-section"});
-    if(!t.checks)t.checks=Array.from({length:5},()=>({text:"",done:false}));
-    while(t.checks.length<5)t.checks.push({text:"",done:false});
+    if(!t.checks)t.checks=Array.from({length:12},()=>({text:"",done:false}));
+    while(t.checks.length<12)t.checks.push({text:"",done:false});
     t.checks.forEach((c,idx)=>{
       const row=h("div",{className:"check-row"});
       // チェックボックス
