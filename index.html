@@ -225,6 +225,18 @@ button{font-family:inherit;cursor:pointer}input,select,textarea{font-family:inhe
 .modal-btn.danger{background:var(--red);border-color:var(--red);color:#fff}
 .modal-btn.danger:hover{opacity:0.88}
 
+/* チェックリスト */
+.checklist-section{display:flex;flex-direction:column;gap:4px}
+.check-row{display:flex;align-items:center;gap:7px;padding:2px 0}
+.check-cb{width:15px;height:15px;border-radius:3px;border:1.5px solid var(--border-strong);background:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:10px;color:transparent;
+  cursor:pointer;flex-shrink:0;transition:all 0.12s}
+.check-cb:hover{border-color:var(--text);background:var(--tag)}
+.check-cb.done{background:var(--text);color:#fff;border-color:var(--text)}
+.check-inp{flex:1;padding:4px 7px;border:1px solid var(--border);border-radius:4px;font-size:11px;outline:none;background:#fff;min-width:0}
+.check-inp:focus{border-color:var(--text-mid)}
+.check-inp.done-txt{color:var(--done-tx);text-decoration:line-through}
+
 /* Setup overlay */
 .setup-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;z-index:200}
 .setup-card{background:#fff;border-radius:12px;padding:28px;max-width:540px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,0.15);max-height:90vh;overflow-y:auto}
@@ -281,7 +293,8 @@ function projectsToRows(projects){
     rows.push({"プロジェクト":p.productName,"機能":"__META__","タスクID":"","タスク名":"",
       "担当者":JSON.stringify({members:p.members||[],roles:p.roles||[],budget:p.budget||""}),"締切":"","完了":""});
     p.features.forEach(f=>{f.tasks.forEach(t=>{
-      rows.push({"プロジェクト":p.productName,"機能":f.name,"タスクID":t.id,"タスク名":t.name,"担当者":t.assignee||"","締切":fmtDl(t.deadline)||t.deadline||"","完了":t.done?"TRUE":"FALSE"});
+      const checksJson=(t.checks&&t.checks.some(c=>c.text||c.done))?JSON.stringify(t.checks):"";
+      rows.push({"プロジェクト":p.productName,"機能":f.name,"タスクID":t.id,"タスク名":t.name,"担当者":t.assignee||"","締切":fmtDl(t.deadline)||t.deadline||"","完了":t.done?"TRUE":"FALSE","チェック":checksJson});
     });});
   });
   return rows;
@@ -299,7 +312,10 @@ function rowsToProjects(rows){
     }
     if(!fName)continue;
     if(!p._fMap[fName]){const f={id:"f_"+Math.random().toString(36).slice(2,7),name:fName,tasks:[]};p._fMap[fName]=f;p.features.push(f);}
-    p._fMap[fName].tasks.push({id:(row["タスクID"]||"").trim()||"t_"+Math.random().toString(36).slice(2,7),name:(row["タスク名"]||"").trim(),assignee:(row["担当者"]||"").trim(),deadline:(row["締切"]||"").trim(),done:(row["完了"]||"").trim().toUpperCase()==="TRUE"});
+    let taskChecks=[];
+    try{const raw=row["チェック"]||"";if(raw)taskChecks=JSON.parse(raw);}catch{}
+    while(taskChecks.length<5)taskChecks.push({text:"",done:false});
+    p._fMap[fName].tasks.push({id:(row["タスクID"]||"").trim()||"t_"+Math.random().toString(36).slice(2,7),name:(row["タスク名"]||"").trim(),assignee:(row["担当者"]||"").trim(),deadline:(row["締切"]||"").trim(),done:(row["完了"]||"").trim().toUpperCase()==="TRUE",checks:taskChecks});
   }
   return pOrder.map(n=>{const p=pMap[n];delete p._fMap;return p;}).filter(p=>p.features.length>0)||null;
 }
@@ -392,6 +408,15 @@ function h(tag,props,...kids){const el=document.createElement(tag);if(props)for(
 function toggleTask(taskId){ap().features.forEach(f=>f.tasks.forEach(t=>{if(t.id===taskId)t.done=!t.done;}));scheduleSave();render();}
 function updateTaskField(taskId,key,val){ap().features.forEach(f=>f.tasks.forEach(t=>{if(t.id===taskId)t[key]=val;}));}
 function updateFeatField(featId,key,val){ap().features.forEach(f=>{if(f.id===featId)f[key]=val;});}
+function updateCheck(taskId,idx,key,val){
+  ap().features.forEach(f=>f.tasks.forEach(t=>{
+    if(t.id===taskId){
+      if(!t.checks)t.checks=Array.from({length:5},()=>({text:"",done:false}));
+      while(t.checks.length<5)t.checks.push({text:"",done:false});
+      t.checks[idx][key]=val;
+    }
+  }));
+}
 function findTask(id){for(const f of ap().features)for(const t of f.tasks)if(t.id===id)return{task:t,feat:f};return null;}
 
 // ═══ Render ═══
@@ -671,7 +696,17 @@ function renderCenterBlock(){
       blk.appendChild(h("div",{className:"cell prod-cell",onClick:()=>{S.renamingTab=p.id;S.renameVal=p.productName;render();}},
         h("div",{className:"prod-name"},p.productName),h("div",{className:"prod-pct"},projectPct(p)+"%")));
     }else{
-      const f=p.features[pos[i]];if(!f){blk.appendChild(h("div",{className:"cell"}));continue;}
+      const f=p.features[pos[i]];
+      if(!f){
+        // 空の機能スロット：クリックで新規機能を追加
+        blk.appendChild(h("div",{className:"cell cell-empty",onClick:()=>{
+          const nf=mkFeat("新機能",[]);
+          p.features.push(nf);
+          scheduleSave();
+          setState({editFeatId:nf.id,editTaskId:null});
+        }}));
+        continue;
+      }
       const{pct,done,total}=featPct(f);
       blk.appendChild(h("div",{className:"cell feat-cell"+(done===total&&total>0?" complete":""),onClick:()=>setState({editFeatId:f.id,editTaskId:null})},
         h("div",{className:"fc-name"},f.name),h("div",{className:"fc-bottom"},h("div",{className:"fc-pct"},pct+"%"),h("div",{className:"fc-bar"},h("div",{className:"fc-bar-fill",style:{width:pct+"%"}})))));
@@ -761,6 +796,31 @@ function renderEditPanel(){
     sel.addEventListener("change",e=>{updateTaskField(t.id,"assignee",e.target.value);scheduleSave();render();});
     aRow.appendChild(sel);panel.appendChild(aRow);
     panel.appendChild(mkInp("締切 (MM/DD)","deadline"));
+
+    // ── チェックリスト（5項目）──
+    const clSection=h("div",{className:"edit-row"});
+    clSection.appendChild(h("label",{},"チェックリスト"));
+    const clWrap=h("div",{className:"checklist-section"});
+    if(!t.checks)t.checks=Array.from({length:5},()=>({text:"",done:false}));
+    while(t.checks.length<5)t.checks.push({text:"",done:false});
+    t.checks.forEach((c,idx)=>{
+      const row=h("div",{className:"check-row"});
+      // チェックボックス
+      const cb=h("div",{className:"check-cb"+(c.done?" done":""),onClick:()=>{
+        updateCheck(t.id,idx,"done",!c.done);
+        scheduleSave();render();
+      }},c.done?"✓":"");
+      row.appendChild(cb);
+      // テキスト入力（タイピングラグ防止：inputで更新、changeで保存）
+      const inp=h("input",{className:"check-inp"+(c.done?" done-txt":""),value:c.text,placeholder:"項目 "+(idx+1)});
+      inp.addEventListener("input",e=>updateCheck(t.id,idx,"text",e.target.value));
+      inp.addEventListener("change",()=>scheduleSave());
+      row.appendChild(inp);
+      clWrap.appendChild(row);
+    });
+    clSection.appendChild(clWrap);
+    panel.appendChild(clSection);
+
     const dRow=h("div",{className:"edit-row"});dRow.appendChild(h("label",{},"ステータス"));
     dRow.appendChild(h("button",{className:"btn"+(t.done?" primary":""),onClick:()=>toggleTask(t.id)},t.done?"✓ 完了済み":"未完了"));
     panel.appendChild(dRow);
